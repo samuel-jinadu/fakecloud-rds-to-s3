@@ -2,6 +2,13 @@
 ENV_FILE=${1:-./environments/fakecloud.env}
 source "$ENV_FILE"
 
+# Only pull the fakecloud postgres image when targeting FakeCloud (not real AWS).
+# `AWS_ENDPOINT_URL` is set in fakecloud.env and unset in aws.env.
+if [[ -n "${AWS_ENDPOINT_URL:-}" ]]; then
+    echo "Pulling postgres image for fakecloud..."
+    docker pull ghcr.io/faiscadev/fakecloud-postgres:16-0.51.0
+fi
+
 # S3 bucket (handle if it already exists)
 echo "Creating S3 bucket..."
 aws s3 mb s3://data-lake 2>/dev/null || echo "Bucket data-lake already exists."
@@ -38,9 +45,19 @@ echo "Database running at $DB_HOST:$DB_PORT"
 
 # Execute the SQL file
 echo "Seeding database..."
+
 PGPASSWORD=password123 psql \
     -h "$DB_HOST" \
     -p "$DB_PORT" \
     -U admin \
     -d postgres \
+    -v ON_ERROR_STOP=1 \
+    -c "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;"
+
+PGPASSWORD=password123 psql \
+    -h "$DB_HOST" \
+    -p "$DB_PORT" \
+    -U admin \
+    -d postgres \
+    -v ON_ERROR_STOP=1 \
     -f "$(dirname "$0")/data-lake.sql"

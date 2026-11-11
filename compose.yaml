@@ -7,6 +7,8 @@ services:
       FAKECLOUD_STORAGE_MODE: "persistent"
       FAKECLOUD_DATA_PATH: "/var/lib/fakecloud"
       FAKECLOUD_ADDR: "0.0.0.0:4566"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./fakecloud:/var/lib/fakecloud
       - /var/run/docker.sock:/var/run/docker.sock
@@ -23,8 +25,8 @@ services:
           
   cloud-script:
     build: 
-      context: .
-      dockerfile: aws-scripts/Dockerfile
+      context: aws-scripts 
+      dockerfile: Dockerfile
     depends_on:
       fakecloud:
         condition: service_healthy
@@ -32,11 +34,26 @@ services:
       AWS_ENDPOINT_URL: http://fakecloud:4566
       AWS_CONTAINER_CREDENTIALS_FULL_URI: http://fakecloud:4566/_fakecloud/credentials
       AWS_DEFAULT_REGION: us-east-1
+    extra_hosts:
+      - "host.docker.internal:host-gateway" 
   
   app:
     build:
-      context: .
-      dockerfile: python/Dockerfile
+      context: python
+      dockerfile: Dockerfile
     depends_on:
       cloud-script:
         condition: service_completed_successfully
+    extra_hosts:
+      - "host.docker.internal:host-gateway" 
+    environment:
+      AWS_ENDPOINT_URL: http://fakecloud:4566
+      AWS_ACCESS_KEY_ID: test 
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_DEFAULT_REGION: us-east-1
+      DB_USER: admin
+      DB_PASS: password123
+      DB_NAME: postgres
+      DB_INSTANCE_ID: my-postgres-db
+      S3_BUCKET: data-lake
+      S3_PREFIX: exports
