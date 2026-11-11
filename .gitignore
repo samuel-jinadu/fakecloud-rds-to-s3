@@ -1,0 +1,7 @@
+.venv
+push.sh
+proj.txt
+.vscode
+pack-proj.sh
+fakecloud/**
+!fakecloud/.gitkeep

@@ -1,0 +1,42 @@
+services:
+  fakecloud:
+    image: ghcr.io/faiscadev/fakecloud:latest
+    ports:
+      - "4566:4566"
+    environment:
+      FAKECLOUD_STORAGE_MODE: "persistent"
+      FAKECLOUD_DATA_PATH: "/var/lib/fakecloud"
+      FAKECLOUD_ADDR: "0.0.0.0:4566"
+    volumes:
+      - ./fakecloud:/var/lib/fakecloud
+      - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test: ["CMD", "fakecloud", "healthcheck"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
+          
+  cloud-script:
+    build: 
+      context: .
+      dockerfile: aws-scripts/Dockerfile
+    depends_on:
+      fakecloud:
+        condition: service_healthy
+    environment:
+      AWS_ENDPOINT_URL: http://fakecloud:4566
+      AWS_CONTAINER_CREDENTIALS_FULL_URI: http://fakecloud:4566/_fakecloud/credentials
+      AWS_DEFAULT_REGION: us-east-1
+  
+  app:
+    build:
+      context: .
+      dockerfile: python/Dockerfile
+    depends_on:
+      cloud-script:
+        condition: service_completed_successfully
